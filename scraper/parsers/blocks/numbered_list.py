@@ -36,7 +36,7 @@ class NumberedListBlock(LessonBlock):
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.items:
-            return (self.locator.text_content() or '').strip()
+            return self.fallback_text
 
         rendered: list[str] = []
         for num, item_html in self.items:

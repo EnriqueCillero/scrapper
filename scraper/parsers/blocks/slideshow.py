@@ -115,7 +115,7 @@ class SlideshowBlock(LessonBlock):
                 lines.append(MarkdownBuilder.build_numbered_item(step_num, body_md))
 
         out = '\n'.join(lines).strip()
-        return out if out else (self.locator.text_content() or '').strip()
+        return out if out else self.fallback_text
 
     def _render_pdf(self, builder, assets_dir=None) -> list:
         out: list = []

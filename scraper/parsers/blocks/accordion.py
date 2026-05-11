@@ -34,7 +34,7 @@ class AccordionBlock(LessonBlock):
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.items:
-            return (self.locator.text_content() or '').strip()
+            return self.fallback_text
 
         lines: list[str] = []
         for title, body_html in self.items:

@@ -46,7 +46,7 @@ class ImageBlock(LessonBlock):
             alt = self.image_alt or 'image'
             return MarkdownBuilder.build_image(alt, f'assets/{self.asset_filename}')
 
-        return (self.locator.text_content() or '').strip()
+        return self.fallback_text
 
     def _render_pdf(self, builder, assets_dir=None) -> list:
         if self.image_url and self.asset_filename and assets_dir:

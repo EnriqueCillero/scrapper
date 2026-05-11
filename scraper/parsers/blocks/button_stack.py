@@ -37,7 +37,7 @@ class ButtonStackBlock(LessonBlock):
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.entries:
-            return (self.locator.text_content() or '').strip()
+            return self.fallback_text
 
         callouts: list[str] = []
         for desc_html, href in self.entries:

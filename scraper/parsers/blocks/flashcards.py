@@ -34,7 +34,7 @@ class FlashcardsBlock(LessonBlock):
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.cards:
-            return (self.locator.text_content() or '').strip()
+            return self.fallback_text
 
         lines: list[str] = []
         for title, back_html in self.cards:

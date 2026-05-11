@@ -71,7 +71,7 @@ class LabeledImageBlock(LessonBlock):
             lines.append(MarkdownBuilder.build_bullet_item(title, desc_md))
 
         out = '\n'.join(lines).strip()
-        return out if out else (self.locator.text_content() or '').strip()
+        return out if out else self.fallback_text
 
     def _render_pdf(self, builder, assets_dir=None) -> list:
         out: list = []

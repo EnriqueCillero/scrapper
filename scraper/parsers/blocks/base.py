@@ -20,9 +20,17 @@ class LessonBlock(ABC):
 
     block_id: str | None
     locator: Locator
+    fallback_text: str = ''
 
     def __post_init__(self) -> None:
         self._scrape()
+        self.fallback_text = self._capture_fallback_text()
+
+    def _capture_fallback_text(self) -> str:
+        try:
+            return (self.locator.text_content(timeout=1000) or '').strip()
+        except Exception:
+            return ''
 
     @abstractmethod
     def _scrape(self) -> None:

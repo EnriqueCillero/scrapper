@@ -74,7 +74,7 @@ class TabsBlock(LessonBlock):
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.tabs:
-            return (self.locator.text_content() or '').strip()
+            return self.fallback_text
 
         if assets_dir and self.images:
             for filename, url in self.images.items():

@@ -41,7 +41,7 @@ class GalleryCarouselBlock(LessonBlock):
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.images:
-            return (self.locator.text_content() or '').strip()
+            return self.fallback_text
 
         if assets_dir:
             for filename, _alt, url in self.images:
