@@ -3,15 +3,18 @@ from __future__ import annotations
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, Tag
 
+from scraper.parsers.cleaning import clean_content_soup, clean_scraped_text
+
 
 def html_to_markdown(html: str) -> str:
     soup = BeautifulSoup(html or '', 'html.parser')
+    clean_content_soup(soup)
     parts: list[str] = []
     for child in soup.contents:
         out = _render_node_as_blocks(child)
         if out:
             parts.extend(out)
-    return _join_blocks(parts)
+    return clean_scraped_text(_join_blocks(parts))
 
 
 def _render_node_as_blocks(node) -> list[str]:

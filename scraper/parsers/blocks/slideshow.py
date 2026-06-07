@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from scraper.formats.md import MarkdownBuilder
 from scraper.formats.pdf import html_to_flowables
 from scraper.parsers.blocks.base import LessonBlock
+from scraper.parsers.cleaning import clean_scraped_text, compact_text, is_standalone_slide_index
 from scraper.utils.assets import ensure_asset, safe_basename_from_url, safe_filename
+from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown
 
 
 @dataclass
@@ -17,15 +18,14 @@ class SlideshowBlock(LessonBlock):
     intro_body_html: str = ''
     intro_body_text: str = ''
 
-    steps: list[tuple[str, str, str, str | None, str]] = field(default_factory=list)
-    # (step_num, body_html, body_text, asset_filename, alt)
+    steps: list[tuple[str, str, str, str, str | None, str, list[VideoAsset]]] = field(
+        default_factory=list
+    )
+    # (step_num, title, body_html, body_text, asset_filename, alt, videos)
 
     image_url_by_filename: dict[str, str] = field(default_factory=dict)  # filename -> url
 
     def _scrape(self) -> None:
-        def _compact(text: str) -> str:
-            return (' '.join((text or '').split())).strip()
-
         def _safe_text_content(el) -> str:
             try:
                 if not el.count():
@@ -34,19 +34,49 @@ class SlideshowBlock(LessonBlock):
             except Exception:
                 return ''
 
+        def _safe_inner_html(el) -> str:
+            try:
+                if not el.count():
+                    return ''
+                return el.inner_html(timeout=1000) or ''
+            except Exception:
+                return ''
+
+        def _first_text(scope, selector: str) -> str:
+            return clean_scraped_text(_safe_text_content(scope.locator(selector).first))
+
+        def _first_html(scope, selector: str) -> str:
+            return (_safe_inner_html(scope.locator(selector).first) or '').strip()
+
+        def _is_placeholder_title(text: str) -> bool:
+            value = compact_text(text)
+            return (not value) or is_standalone_slide_index(value) or value.lower().startswith('step ')
+
         intro = self.locator.locator('.process-card--intro').first
         if intro.count():
-            title_el = intro.locator('.process-card__title .fr-view').first
-            self.intro_title = _compact(_safe_text_content(title_el))
+            self.intro_title = _first_text(
+                intro,
+                '.process-card__title .fr-view, .process-card__title',
+            )
+            if _is_placeholder_title(self.intro_title):
+                self.intro_title = ''
 
-            desc_fr = intro.locator('.process-card__description .fr-view').first
-            self.intro_body_html = (desc_fr.inner_html() if desc_fr.count() else '') or ''
-            self.intro_body_text = _safe_text_content(desc_fr) if desc_fr.count() else ''
+            self.intro_body_html = _first_html(
+                intro,
+                '.process-card__description .fr-view, .process-card__description',
+            )
+            self.intro_body_text = _first_text(
+                intro,
+                '.process-card__description .fr-view, .process-card__description',
+            )
 
-        steps: list[tuple[str, str, str, str | None, str]] = []
+        steps: list[tuple[str, str, str, str, str | None, str, list[VideoAsset]]] = []
         image_url_by_filename: dict[str, str] = {}
+        prefix = (self.block_id or 'block').strip()
 
         cards = self.locator.locator('.process-card[data-slide]')
+        if not cards.count():
+            cards = self.locator.locator('.process-card')
 
         for i in range(cards.count()):
             card = cards.nth(i)
@@ -57,10 +87,21 @@ class SlideshowBlock(LessonBlock):
             step_num = _safe_text_content(num_el) if num_el.count() else ''
             step_num = ''.join(ch for ch in step_num if ch.isdigit()) or str(len(steps) + 1)
 
+            title = _first_text(card, '.process-card__title .fr-view, .process-card__title')
+            if _is_placeholder_title(title):
+                title = ''
+
             # Description
-            desc_fr = card.locator('.process-card__description .fr-view').first
-            body_html = (desc_fr.inner_html() if desc_fr.count() else '') or ''
-            body_text = _safe_text_content(desc_fr) if desc_fr.count() else ''
+            body_html = _first_html(
+                card,
+                '.process-card__description .fr-view, .process-card__description',
+            )
+            body_text = _first_text(
+                card,
+                '.process-card__description .fr-view, .process-card__description',
+            )
+            videos = extract_video_assets(card, prefix=f'{prefix}-step{step_num}')
+            video_posters = {video.poster_url for video in videos if video.poster_url}
 
             # Image (optional)
             img = card.locator('.process-card__media img').first
@@ -74,12 +115,23 @@ class SlideshowBlock(LessonBlock):
                     url = img.get_attribute('src')
 
                 if url:
-                    basename = safe_basename_from_url(url) or 'image'
-                    prefix = (self.block_id or 'block').strip()
-                    asset_filename = safe_filename(f'{prefix}-step{step_num}-{basename}')
-                    image_url_by_filename[asset_filename] = url
+                    if url not in video_posters:
+                        basename = safe_basename_from_url(url) or 'image'
+                        asset_filename = safe_filename(f'{prefix}-step{step_num}-{basename}')
+                        image_url_by_filename[asset_filename] = url
 
-            steps.append((step_num, body_html.strip(), body_text.strip(), asset_filename, alt))
+            if title or body_html.strip() or body_text.strip() or asset_filename or videos:
+                steps.append(
+                    (
+                        step_num,
+                        title,
+                        body_html.strip(),
+                        body_text.strip(),
+                        asset_filename,
+                        alt,
+                        videos,
+                    )
+                )
 
         self.steps = steps
         self.image_url_by_filename = image_url_by_filename
@@ -103,16 +155,29 @@ class SlideshowBlock(LessonBlock):
             lines.append(intro_md.strip())
             lines.append('')
 
-        for step_num, body_html, body_text, asset_filename, alt in self.steps:
+        for step_num, title, body_html, body_text, asset_filename, alt, videos in self.steps:
             body_md = MarkdownBuilder.build_html(body_html) or body_text or ''
 
+            content_lines: list[str] = []
+            if title:
+                content_lines.append(f'**{title}**')
+            if body_md:
+                content_lines.append(body_md)
+            media_lines: list[str] = []
             if asset_filename:
                 img = MarkdownBuilder.build_image(alt or 'image', f'assets/{asset_filename}')
-                lines.append(
-                    MarkdownBuilder.build_numbered_item(step_num, f'{img}\n{body_md}' if body_md else img)
+                media_lines.append(img)
+            for video in videos:
+                media_lines.append(
+                    render_video_markdown(locator=self.locator, video=video, assets_dir=assets_dir)
                 )
-            else:
-                lines.append(MarkdownBuilder.build_numbered_item(step_num, body_md))
+
+            if title.lower().startswith('video solución') and media_lines and not body_md:
+                lines.append('\n'.join([f'**{title}**', *media_lines]).strip())
+                continue
+
+            content = '\n'.join([*content_lines, *media_lines]).strip()
+            lines.append(MarkdownBuilder.build_numbered_item(step_num, content))
 
         out = '\n'.join(lines).strip()
         return out if out else self.fallback_text
@@ -131,14 +196,18 @@ class SlideshowBlock(LessonBlock):
             out.extend(builder.build_subheading(self.intro_title))
         out.extend(intro_flows)
         step_items: list[list] = []
-        for step_num, body_html, body_text, asset_filename, alt in self.steps:
+        for _step_num, title, body_html, body_text, asset_filename, alt, videos in self.steps:
             body_flows = html_to_flowables(body_html or body_text or '', builder, assets_dir=assets_dir)
             path = (assets_dir / asset_filename) if (asset_filename and assets_dir) else None
             has_image = path is not None and path.exists()
-            if body_flows or has_image:
+            if title or body_flows or has_image or videos:
                 step_content: list = []
+                if title:
+                    step_content.extend(builder.build_subheading(title))
                 if has_image and path:
                     step_content.extend(builder.build_image(path))
+                for video in videos:
+                    step_content.extend(builder.build_callout(href=video.url, link_text='Link al vídeo'))
                 step_content.extend(body_flows)
                 step_items.append(step_content)
         if step_items:

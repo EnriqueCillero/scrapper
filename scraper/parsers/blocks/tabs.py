@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from scraper.formats.md import MarkdownBuilder
 from scraper.formats.pdf import html_to_flowables
 from scraper.parsers.blocks.base import LessonBlock
 from scraper.utils.assets import ensure_asset, safe_basename_from_url, safe_filename
+from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown
 
 
 @dataclass
@@ -22,6 +22,8 @@ class TabsBlock(LessonBlock):
     images_by_tab_index: dict[int, list[tuple[str, str]]] = field(default_factory=dict)
     # tab_index -> [(asset_filename, alt)]
 
+    videos_by_tab_index: dict[int, list[VideoAsset]] = field(default_factory=dict)
+
     def _scrape(self) -> None:
         headers = self.locator.locator(f'{self.query_selector} .blocks-tabs__header-item')
         contents = self.locator.locator(f'{self.query_selector} .blocks-tabs__content-item')
@@ -30,6 +32,7 @@ class TabsBlock(LessonBlock):
         tabs: list[tuple[str, str, str]] = []
         images: dict[str, str] = {}
         images_by_tab_index: dict[int, list[tuple[str, str]]] = {}
+        videos_by_tab_index: dict[int, list[VideoAsset]] = {}
 
         prefix = (self.block_id or 'block').strip()
 
@@ -51,6 +54,11 @@ class TabsBlock(LessonBlock):
 
             tabs.append((title, body_html.strip(), body_text.strip()))
 
+            videos = extract_video_assets(content, prefix=f'{prefix}-tab{i + 1}')
+            if videos:
+                videos_by_tab_index[i] = videos
+            video_posters = {video.poster_url for video in videos if video.poster_url}
+
             imgs = content.locator('img')
             for j in range(imgs.count()):
                 img = imgs.nth(j)
@@ -62,6 +70,8 @@ class TabsBlock(LessonBlock):
                 url = (url or '').strip()
                 if not url:
                     continue
+                if url in video_posters:
+                    continue
 
                 basename = safe_basename_from_url(url) or f'image{j + 1}'
                 filename = safe_filename(f'{prefix}-tab{i + 1}-img{j + 1}-{basename}')
@@ -71,6 +81,7 @@ class TabsBlock(LessonBlock):
         self.tabs = tabs
         self.images = images
         self.images_by_tab_index = images_by_tab_index
+        self.videos_by_tab_index = videos_by_tab_index
 
     def _render_md(self, builder, assets_dir=None) -> str:
         if not self.tabs:
@@ -89,6 +100,13 @@ class TabsBlock(LessonBlock):
 
             for filename, alt in self.images_by_tab_index.get(i, []):
                 lines.append(f'  {MarkdownBuilder.build_image(alt, f"assets/{filename}")}')
+            for video in self.videos_by_tab_index.get(i, []):
+                rendered_video = render_video_markdown(
+                    locator=self.locator,
+                    video=video,
+                    assets_dir=assets_dir,
+                )
+                lines.append(f'  {rendered_video}')
 
         return '\n'.join(lines).strip()
 
@@ -108,5 +126,7 @@ class TabsBlock(LessonBlock):
                     path = assets_dir / filename
                     if path.exists():
                         tab_flows.extend(builder.build_image(path))
+            for video in self.videos_by_tab_index.get(i, []):
+                tab_flows.extend(builder.build_callout(href=video.url, link_text='Link al vídeo'))
             items_with_content.append((title_str, tab_flows))
         return builder.build_bullet_list_with_content(items_with_content)

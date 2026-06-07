@@ -11,6 +11,7 @@ from scraper.config import OutputFormat
 from scraper.formats.base import CourseBuilder
 from scraper.formats.md import MarkdownBuilder
 from scraper.formats.pdf import PDFBuilder
+from scraper.parsers.cleaning import clean_scraped_text
 
 
 @dataclass
@@ -28,7 +29,7 @@ class LessonBlock(ABC):
 
     def _capture_fallback_text(self) -> str:
         try:
-            return (self.locator.text_content(timeout=1000) or '').strip()
+            return clean_scraped_text(self.locator.text_content(timeout=1000) or '')
         except Exception:
             return ''
 

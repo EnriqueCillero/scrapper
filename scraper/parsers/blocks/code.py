@@ -2,19 +2,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from guesslang import Guess
+from pygments.lexers import guess_lexer
+from pygments.util import ClassNotFound
 
 from scraper.formats.md import MarkdownBuilder
 from scraper.parsers.blocks.base import LessonBlock
+from scraper.parsers.cleaning import remove_line_number_prefix
 
-_GUESS: Guess | None = None
 
-
-def _get_guess() -> Guess:
-    global _GUESS
-    if _GUESS is None:
-        _GUESS = Guess()
-    return _GUESS
+def _guess_language_name(code: str) -> str | None:
+    try:
+        lexer = guess_lexer(code)
+    except ClassNotFound:
+        return None
+    aliases = getattr(lexer, 'aliases', None) or []
+    return aliases[0] if aliases else getattr(lexer, 'name', None)
 
 
 def _md_lang_tag(language_name: str | None) -> str | None:
@@ -56,12 +58,13 @@ class CodeBlock(LessonBlock):
         pre = self.locator.locator('pre.block-text__code').first
         code = pre.text_content() if pre.count() else self.locator.text_content()
         code = (code or '').rstrip('\n\r\t')
+        code = remove_line_number_prefix(code)
         self.code = code
 
         lang: str | None = None
         if code.strip():
             try:
-                lang = _md_lang_tag(_get_guess().language_name(code))
+                lang = _md_lang_tag(_guess_language_name(code))
             except Exception:
                 lang = None
 

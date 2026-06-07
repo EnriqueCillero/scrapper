@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scraper.formats.base import CourseBuilder
+from scraper.parsers.cleaning import clean_markdown_output
 
 from .html_parser import html_to_markdown
 
@@ -25,7 +26,7 @@ class MarkdownBuilder(CourseBuilder):
     def build(self) -> None:
         if self.output_path is not None:
             content = '\n\n'.join(c for c in self.elements if c is not None).rstrip() + '\n'
-            self.output_path.write_text(content, encoding='utf-8')
+            self.output_path.write_text(clean_markdown_output(content), encoding='utf-8')
 
     @staticmethod
     def build_heading(level: int, text: str) -> str:

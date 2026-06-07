@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from scraper.formats.md import MarkdownBuilder
 from scraper.formats.pdf import html_to_flowables
 from scraper.parsers.blocks.base import LessonBlock
+from scraper.parsers.cleaning import clean_scraped_text
 
 
 @dataclass
@@ -24,7 +25,7 @@ class TextBlock(LessonBlock):
             self.text = self.locator.inner_text() or ''
 
         self.html = (self.html or '').strip()
-        self.text = (self.text or '').strip()
+        self.text = clean_scraped_text(self.text or '')
 
     def _render_md(self, builder, assets_dir=None) -> str:
         md = MarkdownBuilder.build_html(self.html)

@@ -6,6 +6,8 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from reportlab.platypus import Paragraph
 
+from scraper.parsers.cleaning import clean_content_soup
+
 from .builder import PDFBuilder
 from .config import PDF_FONT_JETBRAINS
 from .utils import link_tag
@@ -58,6 +60,7 @@ def html_to_flowables(
     assets_dir: Path | None = None,
 ) -> list:
     soup = BeautifulSoup(html_text or '', 'html.parser')
+    clean_content_soup(soup)
     flowables: list = []
 
     def render_inline(node) -> str:
