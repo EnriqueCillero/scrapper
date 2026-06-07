@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from scraper.parsers.blocks.base import LessonBlock
-from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown
+from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown, should_render_videos
 
 
 @dataclass
@@ -49,6 +49,8 @@ class VideoBlock(LessonBlock):
         )
 
     def _render_pdf(self, builder, assets_dir=None) -> list:
+        if not should_render_videos():
+            return []
         if not self.video_url:
             return builder.build_callout('Video is not available in this output.')
         return builder.build_callout(href=self.video_url, link_text='Link al vídeo')

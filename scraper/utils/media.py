@@ -63,16 +63,20 @@ def extract_video_assets(locator, *, prefix: str) -> list[VideoAsset]:
     return assets
 
 
+def should_render_videos() -> bool:
+    return get_config().download_videos
+
+
 def render_video_markdown(*, locator, video: VideoAsset, assets_dir: Path | None = None) -> str:
-    if not get_config().download_videos:
-        return f'> [Link al vídeo]({video.url})'
+    if not should_render_videos():
+        return ''
 
     if not assets_dir:
-        return f'> [Link al vídeo]({video.url})'
+        return ''
 
     ok = ensure_asset(locator=locator, url=video.url, assets_dir=assets_dir, filename=video.filename)
     if not ok:
-        return f'> [Link al vídeo]({video.url})'
+        return ''
 
     poster_attr = ''
     if video.poster_url and video.poster_filename:

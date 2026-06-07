@@ -7,7 +7,12 @@ from scraper.formats.pdf import html_to_flowables
 from scraper.parsers.blocks.base import LessonBlock
 from scraper.parsers.cleaning import clean_scraped_text, compact_text, is_standalone_slide_index
 from scraper.utils.assets import ensure_asset, safe_basename_from_url, safe_filename
-from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown
+from scraper.utils.media import (
+    VideoAsset,
+    extract_video_assets,
+    render_video_markdown,
+    should_render_videos,
+)
 
 
 @dataclass
@@ -158,20 +163,27 @@ class SlideshowBlock(LessonBlock):
         for _step_num, title, body_html, body_text, asset_filename, alt, videos in self.steps:
             body_md = MarkdownBuilder.build_html(body_html) or body_text or ''
 
-            content_lines: list[str] = []
-            if title:
-                heading_level = 5 if title.lower().startswith('video solución') else 4
-                content_lines.append(MarkdownBuilder.build_heading(heading_level, title))
-            if body_md:
-                content_lines.append(body_md)
             media_lines: list[str] = []
             if asset_filename:
                 img = MarkdownBuilder.build_image(alt or 'image', f'assets/{asset_filename}')
                 media_lines.append(img)
             for video in videos:
-                media_lines.append(
-                    render_video_markdown(locator=self.locator, video=video, assets_dir=assets_dir)
+                rendered_video = render_video_markdown(
+                    locator=self.locator,
+                    video=video,
+                    assets_dir=assets_dir,
                 )
+                if rendered_video:
+                    media_lines.append(rendered_video)
+
+            content_lines: list[str] = []
+            is_video_title = title.lower().startswith('video solución') if title else False
+            should_keep_title = bool(title and (body_md or media_lines or not videos))
+            if should_keep_title:
+                heading_level = 5 if is_video_title else 4
+                content_lines.append(MarkdownBuilder.build_heading(heading_level, title))
+            if body_md:
+                content_lines.append(body_md)
 
             content = '\n'.join([*content_lines, *media_lines]).strip()
             if content:
@@ -198,13 +210,16 @@ class SlideshowBlock(LessonBlock):
             body_flows = html_to_flowables(body_html or body_text or '', builder, assets_dir=assets_dir)
             path = (assets_dir / asset_filename) if (asset_filename and assets_dir) else None
             has_image = path is not None and path.exists()
-            if title or body_flows or has_image or videos:
+            rendered_videos = videos if should_render_videos() else []
+            if title and videos and not body_flows and not has_image and not rendered_videos:
+                continue
+            if title or body_flows or has_image or rendered_videos:
                 step_content: list = []
                 if title:
                     step_content.extend(builder.build_subheading(title))
                 if has_image and path:
                     step_content.extend(builder.build_image(path))
-                for video in videos:
+                for video in rendered_videos:
                     step_content.extend(builder.build_callout(href=video.url, link_text='Link al vídeo'))
                 step_content.extend(body_flows)
                 step_items.append(step_content)

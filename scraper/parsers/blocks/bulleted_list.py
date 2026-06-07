@@ -52,5 +52,7 @@ class BulletedListBlock(LessonBlock):
     def _render_pdf(self, builder, assets_dir=None) -> list:
         if not self.items:
             return []
-        items_flows = [html_to_flowables(html, builder, assets_dir=assets_dir) for html in self.items]
-        return builder.build_bullet_list_with_content(items_flows)
+        items_with_content = [
+            ('', html_to_flowables(html, builder, assets_dir=assets_dir)) for html in self.items
+        ]
+        return builder.build_bullet_list_with_content(items_with_content)

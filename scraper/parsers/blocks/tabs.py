@@ -6,7 +6,7 @@ from scraper.formats.md import MarkdownBuilder
 from scraper.formats.pdf import html_to_flowables
 from scraper.parsers.blocks.base import LessonBlock
 from scraper.utils.assets import ensure_asset, safe_basename_from_url, safe_filename
-from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown
+from scraper.utils.media import VideoAsset, extract_video_assets, render_video_markdown, should_render_videos
 
 
 @dataclass
@@ -109,7 +109,8 @@ class TabsBlock(LessonBlock):
                     video=video,
                     assets_dir=assets_dir,
                 )
-                lines.append(rendered_video)
+                if rendered_video:
+                    lines.append(rendered_video)
 
         return '\n\n'.join(line for line in lines if line.strip()).strip()
 
@@ -129,7 +130,8 @@ class TabsBlock(LessonBlock):
                     path = assets_dir / filename
                     if path.exists():
                         tab_flows.extend(builder.build_image(path))
-            for video in self.videos_by_tab_index.get(i, []):
-                tab_flows.extend(builder.build_callout(href=video.url, link_text='Link al vídeo'))
+            if should_render_videos():
+                for video in self.videos_by_tab_index.get(i, []):
+                    tab_flows.extend(builder.build_callout(href=video.url, link_text='Link al vídeo'))
             items_with_content.append((title_str, tab_flows))
         return builder.build_bullet_list_with_content(items_with_content)
