@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from scraper.formats.md import MarkdownBuilder
 from scraper.formats.pdf import html_to_flowables

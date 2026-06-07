@@ -70,6 +70,10 @@ def write_file(
         from scraper.formats.md import MDWriter
 
         MDWriter().write(course, output_path, assets_dir=assets_dir)
+    elif fmt == OutputFormat.AI:
+        from scraper.formats.ai import AIMarkdownWriter
+
+        AIMarkdownWriter().write(course, output_path, assets_dir=assets_dir)
     elif fmt == OutputFormat.PDF:
         from scraper.formats.pdf import PDFWriter
 

@@ -15,6 +15,7 @@ def _get_default_pdf_theme():  # Lazy to avoid circular import
 class OutputFormat(Enum):
     MD = ('md', 'Markdown')
     PDF = ('pdf', 'PDF')
+    AI = ('ai.md', 'AI optimized Markdown')
 
     @property
     def extension(self) -> str:

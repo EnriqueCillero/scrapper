@@ -72,7 +72,7 @@ def ensure_asset(*, locator: Any, url: str, assets_dir: Path, filename: str) -> 
     target = assets_dir / filename
 
     if target.exists():
-        logger.info('Asset %s already exists, skipping download.', filename)
+        logger.debug('Asset %s already exists, skipping download.', filename)
         return True
 
     logger.info('Downloading asset %s', filename)
