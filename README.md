@@ -40,4 +40,4 @@ Scrapes SCORM content from U-TAD Blackboard and exports it as Markdown or PDF.
 
 4. When prompted, press **ENTER** after the SCORM popup is open. The scraper will extract the content and write it to the configured output directory.
 
-Output files are written to `./output/<course_name>/` (or the path you configured).
+Output files are written to `./output/<course_name>/<topic_name>/` with topic-local assets in `./output/<course_name>/<topic_name>/assets/` (or under the path you configured).

@@ -139,6 +139,12 @@ def clean_markdown_output(markdown: str) -> str:
         'style="display:block;width:100%;max-width:960px;height:auto;margin:0.75rem 0;" ',
         cleaned,
     )
+    cleaned = re.sub(
+        r'(?m)^(<video\b[^\n]*</video>)\s*\n\s*\*\*(Video Solución [^*\n]+)\*\*',
+        r'##### \2\n\n\1',
+        cleaned,
+    )
+    cleaned = re.sub(r'(?m)^\s*\d{1,3}\.\s+(!\[[^\]]*]\(assets/[^)\n]+\))', r'\1', cleaned)
     cleaned = re.sub(r'(?m)^\s*\d{1,3}\s*$', '', cleaned)
     cleaned = re.sub(r'(?m)^(\d{1,3}\.[a-z])\s+\d{1,3}\s*$', r'\1', cleaned)
     cleaned = re.sub(r'(?m)(\S)\s+\d{1,3}\s*$', r'\1', cleaned)
@@ -156,6 +162,7 @@ def clean_markdown_output(markdown: str) -> str:
     cleaned = re.sub(r'\b(Soluciones)\s*(?=\n?##)', r'\1\n\n', cleaned)
     cleaned = re.sub(r'\b(Video Solución [\d.a-z, y]+)(?=\s+[A-ZÁÉÍÓÚ])', r'\1\n\n', cleaned)
     cleaned = re.sub(r'(?<=[.!?])\s*(\d{1,3}\.[a-z]\b)', r'\n\n\1', cleaned)
+    cleaned = re.sub(r'(?m)^(\s*\d+)\.(?=[A-Za-zÁÉÍÓÚáéíóúÑñ])', r'\1. ', cleaned)
     cleaned = re.sub(
         r'\b(Enunciado|Soluciones)\s+((?:\d{1,3}\.[a-z]\s+))',
         lambda m: f'{m.group(1)}\n\n{m.group(2)}',

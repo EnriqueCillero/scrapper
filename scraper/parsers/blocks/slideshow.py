@@ -155,12 +155,13 @@ class SlideshowBlock(LessonBlock):
             lines.append(intro_md.strip())
             lines.append('')
 
-        for step_num, title, body_html, body_text, asset_filename, alt, videos in self.steps:
+        for _step_num, title, body_html, body_text, asset_filename, alt, videos in self.steps:
             body_md = MarkdownBuilder.build_html(body_html) or body_text or ''
 
             content_lines: list[str] = []
             if title:
-                content_lines.append(f'**{title}**')
+                heading_level = 5 if title.lower().startswith('video solución') else 4
+                content_lines.append(MarkdownBuilder.build_heading(heading_level, title))
             if body_md:
                 content_lines.append(body_md)
             media_lines: list[str] = []
@@ -172,12 +173,9 @@ class SlideshowBlock(LessonBlock):
                     render_video_markdown(locator=self.locator, video=video, assets_dir=assets_dir)
                 )
 
-            if title.lower().startswith('video solución') and media_lines and not body_md:
-                lines.append('\n'.join([f'**{title}**', *media_lines]).strip())
-                continue
-
             content = '\n'.join([*content_lines, *media_lines]).strip()
-            lines.append(MarkdownBuilder.build_numbered_item(step_num, content))
+            if content:
+                lines.append(content)
 
         out = '\n'.join(lines).strip()
         return out if out else self.fallback_text

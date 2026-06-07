@@ -96,19 +96,22 @@ class TabsBlock(LessonBlock):
             title_str = title.strip() or f'Tab {i + 1}'
             body_md = MarkdownBuilder.build_html(body_html) or body_text or ''
 
-            lines.append(MarkdownBuilder.build_bullet_item(title_str, body_md))
+            if title_str and title_str != f'Tab {i + 1}':
+                lines.append(MarkdownBuilder.build_heading(5, title_str))
+            if body_md:
+                lines.append(body_md)
 
             for filename, alt in self.images_by_tab_index.get(i, []):
-                lines.append(f'  {MarkdownBuilder.build_image(alt, f"assets/{filename}")}')
+                lines.append(MarkdownBuilder.build_image(alt, f'assets/{filename}'))
             for video in self.videos_by_tab_index.get(i, []):
                 rendered_video = render_video_markdown(
                     locator=self.locator,
                     video=video,
                     assets_dir=assets_dir,
                 )
-                lines.append(f'  {rendered_video}')
+                lines.append(rendered_video)
 
-        return '\n'.join(lines).strip()
+        return '\n\n'.join(line for line in lines if line.strip()).strip()
 
     def _render_pdf(self, builder, assets_dir=None) -> list:
         if not self.tabs:
